@@ -126,3 +126,16 @@ echo
 
 echo "Note: 'du' overcounts /System due to firmlinks and snapshot block"
 echo "sharing. The numbers above come from APFS accounting and are the truth."
+echo
+echo "==================================================================="
+echo " FULL RAW OUTPUT: diskutil apfs list"
+echo " (complete tree: containers, physical stores, volumes, roles,"
+echo "  FileVault, seal status, snapshots and UUIDs)"
+echo "==================================================================="
+diskutil apfs list 2>/dev/null
+echo
+echo "==================================================================="
+echo " FULL RAW OUTPUT: df -h (all mounted filesystems)"
+echo "==================================================================="
+df -h
+
