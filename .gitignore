@@ -1,0 +1,11 @@
+# Local configuration with real, machine-specific paths.
+# Keep this out of version control; commit targets.conf.example instead.
+targets.conf
+
+# macOS
+.DS_Store
+
+# Editor noise
+.vscode/
+.idea/
+*.swp

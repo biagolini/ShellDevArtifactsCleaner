@@ -1,0 +1,13 @@
+# targets.conf.example
+# Copy this file to "targets.conf" and edit it with your own paths:
+#   cp targets.conf.example targets.conf
+#
+# Rules:
+#   - One directory per line.
+#   - Lines starting with '#' and blank lines are ignored.
+#   - A leading '~' and environment variables (e.g. $HOME) are expanded.
+#   - Missing directories are reported and skipped, not treated as errors.
+
+~/projects/
+$HOME/work/repositories/
+/absolute/path/to/another/workspace/
