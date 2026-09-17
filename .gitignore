@@ -9,3 +9,6 @@ targets.conf
 .vscode/
 .idea/
 *.swp
+
+# Temp files
+.temp/
