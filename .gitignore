@@ -12,3 +12,6 @@ targets.conf
 
 # Temp files
 .temp/
+
+# Scan output (may contain local paths)
+.output/
