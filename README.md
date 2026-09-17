@@ -10,7 +10,12 @@
 
 ## Overview
 
-This repository provides a small, dependency-free Bash script that reclaims disk space by removing recreatable development artifacts from a configurable list of directories. It targets the folders that dominate disk usage on a developer machine, such as Terraform provider caches, npm dependencies, Angular CLI caches, and Python virtual environments, all of which can be regenerated on demand.
+This repository provides small, dependency-free Bash scripts that reclaim disk space on a developer machine by removing recreatable content. There are two complementary tools:
+
+- `clean-dev-artifacts.sh` removes recreatable development artifacts (Terraform provider caches, `node_modules`, Angular CLI caches, Python virtual environments and caches) from a configurable list of directories.
+- `clean-system-caches.sh` removes recreatable macOS user caches and stale, old versions of tools (Homebrew leftovers, old kiro-cli versions, updater caches), with opt-in flags for heavier targets such as Apple aerial wallpapers, Xcode device-support symbols, and Docker build cache.
+
+Both scripts are dry-run by default and never touch user documents or synced cloud folders.
 
 ## The Problem
 
@@ -36,7 +41,8 @@ The list of directories to clean lives in `targets.conf`, which is intentionally
 
 ```
 .
-├── clean-dev-artifacts.sh    # The cleanup script
+├── clean-dev-artifacts.sh    # Removes dev artifacts from configured directories
+├── clean-system-caches.sh    # Removes macOS caches and old tool versions
 ├── targets.conf.example      # Template listing the directories to scan
 ├── targets.conf              # Your local, gitignored copy (create from the example)
 ├── .gitignore
@@ -94,7 +100,35 @@ Make sure the script is executable after cloning:
 chmod +x clean-dev-artifacts.sh
 ```
 
-## After Cleaning
+## System Caches Cleaner
+
+`clean-system-caches.sh` targets recreatable macOS user caches and stale, old versions of tools. Like the other script, it is dry-run by default and only deletes with `--apply` after an explicit confirmation.
+
+Default targets (safe, recreatable):
+
+- Everything under `~/Library/Caches` (browsers, package managers, app caches).
+- `brew cleanup --prune=all` (old formula versions and cached downloads).
+- Old kiro-cli versions under `~/Library/Application Support/kiro-cli/kas`, keeping only the newest.
+- Updater/installer leftovers (`*.ShipIt` caches).
+
+Opt-in heavy targets, off by default:
+
+- `--wallpaper` removes Apple aerial wallpaper videos (re-downloaded when selected).
+- `--xcode` removes Xcode iOS DeviceSupport symbols (regenerated on device connect).
+- `--docker` prunes Docker build cache and unused images while keeping all volumes safe.
+- `--docker-volumes` also prunes unused Docker volumes. Use with care: unused volumes may hold databases of stopped projects.
+- `--all` enables `--wallpaper`, `--xcode`, and the safe `--docker` (it does not enable `--docker-volumes`).
+
+Examples:
+
+```bash
+./clean-system-caches.sh                       # dry-run, default targets
+./clean-system-caches.sh --apply               # delete default targets
+./clean-system-caches.sh --wallpaper --xcode   # preview with heavy targets
+./clean-system-caches.sh --all --apply         # everything (safe docker), delete
+./clean-system-caches.sh --docker-volumes --apply  # also prune docker volumes
+```
+
 
 The removed artifacts are regenerated the next time you work on a project:
 
