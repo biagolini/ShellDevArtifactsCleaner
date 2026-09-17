@@ -10,12 +10,54 @@
 
 ## Overview
 
-This repository provides small, dependency-free Bash scripts that reclaim disk space on a developer machine by removing recreatable content. There are two complementary tools:
+This repository provides small, dependency-free Bash scripts that reclaim disk space on a macOS developer machine by removing recreatable content, plus read-only tools to understand where the space actually went. There are four scripts:
 
 - `clean-dev-artifacts.sh` removes recreatable development artifacts (Terraform provider caches, `node_modules`, Angular CLI caches, Python virtual environments and caches) from a configurable list of directories.
-- `clean-system-caches.sh` removes recreatable macOS user caches and stale, old versions of tools (Homebrew leftovers, old kiro-cli versions, updater caches), with opt-in flags for heavier targets such as Apple aerial wallpapers, Xcode device-support symbols, and Docker build cache.
+- `clean-system-caches.sh` removes recreatable macOS user caches and stale, old versions of tools (Homebrew leftovers, old kiro-cli versions, updater caches), with opt-in flags for heavier targets such as package-manager caches (uv, npm), Apple aerial wallpapers, Xcode device-support symbols, and Docker build cache and unused images.
+- `disk-usage-report.sh` (read-only) shows the real per-volume APFS usage, because `du` overcounts `/System` due to firmlinks and snapshot block sharing.
+- `deep-disk-scan.sh` (read-only, uses sudo) performs a full privileged scan of the Data volume and writes a timestamped report into `.output/`.
 
-Both scripts are dry-run by default and never touch user documents or synced cloud folders.
+The cleanup scripts are dry-run by default, ask for confirmation before deleting, and never touch user documents or synced cloud folders. Wherever a tool ships its own cache cleaner (for example `uv cache clean`, `npm cache clean`, `brew cleanup`), the scripts call it instead of `rm -rf`, which is safer because some tools hardlink cache entries into active environments.
+
+## Quick Start
+
+All scripts live in this repository directory. Start by entering it:
+
+```bash
+cd ShellDevArtifactsCleaner
+```
+
+Clean macOS caches and old tool versions. Always run without `--apply` first to preview the plan; the dry-run deletes nothing:
+
+```bash
+# 1) Preview the full cleanup (Library caches + uv + npm + Homebrew + Docker images):
+./clean-system-caches.sh --home-cache --docker
+
+# 2) Run it for real (asks you to type "yes"):
+./clean-system-caches.sh --home-cache --docker --apply
+
+# 3) Everything, including wallpapers and Xcode DeviceSupport:
+./clean-system-caches.sh --all --apply
+```
+
+What each part does, using native commands: `uv cache clean` for the uv cache, `npm cache clean --force` for the npm cache, `brew cleanup -s --prune=all` plus removal of stuck cask installers under Homebrew's `tmp/.caskroom`, and for Docker `docker builder prune -a && docker image prune -a`, which removes build cache and unused images (they are re-downloaded when you next need them) while keeping your volumes intact.
+
+Built-in protections: credential caches (`~/.aws/*/cache`, `~/.cache/claude`) are never touched, Docker volumes are only pruned with the separate `--docker-volumes` flag, and the Claude Desktop sandbox VMs are not touched by this script.
+
+The other scripts in the repository:
+
+```bash
+# Remove dev artifacts (.terraform, node_modules, .angular, venvs)
+# from the directories listed in targets.conf:
+./clean-dev-artifacts.sh            # preview
+./clean-dev-artifacts.sh --apply    # run
+
+# Show the real per-volume APFS disk usage (read-only):
+./disk-usage-report.sh
+
+# Deep privileged scan (sudo), saved into .output/ (read-only):
+./deep-disk-scan.sh
+```
 
 ## The Problem
 
@@ -43,6 +85,8 @@ The list of directories to clean lives in `targets.conf`, which is intentionally
 .
 ├── clean-dev-artifacts.sh    # Removes dev artifacts from configured directories
 ├── clean-system-caches.sh    # Removes macOS caches and old tool versions
+├── disk-usage-report.sh      # Read-only: real per-volume APFS usage
+├── deep-disk-scan.sh         # Read-only (sudo): full Data-volume scan to .output/
 ├── targets.conf.example      # Template listing the directories to scan
 ├── targets.conf              # Your local, gitignored copy (create from the example)
 ├── .gitignore
