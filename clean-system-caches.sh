@@ -98,6 +98,14 @@ if $DO_HOME_CACHE; then
       "$size_kb"
   fi
 
+  # npm: cache lives at ~/.npm/_cacache. Clean via npm's own command.
+  if command -v npm >/dev/null 2>&1 && [[ -d "$HOME/.npm/_cacache" ]]; then
+    size_kb="$(dir_kb "$HOME/.npm/_cacache")"; size_kb="${size_kb:-0}"
+    add_action "npm cache (via 'npm cache clean --force')" \
+      "npm cache clean --force" \
+      "$size_kb"
+  fi
+
   # Other ~/.cache subfolders, excluding uv (handled above) and credentials.
   if [[ -d "$DOTCACHE" ]]; then
     while IFS= read -r sub; do
@@ -115,13 +123,22 @@ if $DO_HOME_CACHE; then
 fi
 
 # ---------------------------------------------------------------------------
-# 2) Homebrew cleanup (old versions + cached downloads)
+# 2) Homebrew cleanup (old versions, download cache, and stuck tmp installers)
+#     'brew cleanup -s --prune=all' also clears the staged download cache.
+#     The tmp/.caskroom holds leftover cask installers (recreated on download).
 # ---------------------------------------------------------------------------
 if command -v brew >/dev/null 2>&1; then
-  # Estimate from the dry-run output ("would free approximately X").
-  add_action "Homebrew cleanup (old versions + download cache)" \
-    "brew cleanup --prune=all" \
+  add_action "Homebrew cleanup (old versions, caches, scrollback)" \
+    "brew cleanup -s --prune=all" \
     "0"
+
+  BREW_TMP="$(brew --prefix 2>/dev/null)/var/homebrew/tmp"
+  if [[ -d "$BREW_TMP/.caskroom" ]]; then
+    size_kb="$(dir_kb "$BREW_TMP/.caskroom")"; size_kb="${size_kb:-0}"
+    add_action "Homebrew stuck cask installers ($BREW_TMP/.caskroom)" \
+      "rm -rf \"$BREW_TMP/.caskroom\"/*" \
+      "$size_kb"
+  fi
 fi
 
 # ---------------------------------------------------------------------------

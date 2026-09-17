@@ -107,23 +107,27 @@ chmod +x clean-dev-artifacts.sh
 Default targets (safe, recreatable):
 
 - Everything under `~/Library/Caches` (browsers, package managers, app caches).
-- `brew cleanup --prune=all` (old formula versions and cached downloads).
+- `brew cleanup -s --prune=all` (old formula versions, cached downloads, scrollback) and stuck cask installers under Homebrew's `tmp/.caskroom`.
 - Old kiro-cli versions under `~/Library/Application Support/kiro-cli/kas`, keeping only the newest.
 - Updater/installer leftovers (`*.ShipIt` caches).
 
 Opt-in heavy targets, off by default:
 
+- `--home-cache` cleans `~/.cache` and other package-manager caches using each tool's own command when available: `uv cache clean` for uv and `npm cache clean --force` for npm. Credential caches (`~/.aws/*/cache`, `~/.cache/claude`) are always skipped.
 - `--wallpaper` removes Apple aerial wallpaper videos (re-downloaded when selected).
 - `--xcode` removes Xcode iOS DeviceSupport symbols (regenerated on device connect).
-- `--docker` prunes Docker build cache and unused images while keeping all volumes safe.
+- `--docker` prunes Docker build cache and unused images while keeping all volumes safe. Removed images are re-downloaded automatically when you next need them.
 - `--docker-volumes` also prunes unused Docker volumes. Use with care: unused volumes may hold databases of stopped projects.
-- `--all` enables `--wallpaper`, `--xcode`, and the safe `--docker` (it does not enable `--docker-volumes`).
+- `--all` enables `--home-cache`, `--wallpaper`, `--xcode`, and the safe `--docker` (it does not enable `--docker-volumes`).
+
+Package managers are cleaned with their native commands rather than raw `rm -rf`, because tools like uv hardlink cache entries into active environments; using the tool's own cleaner avoids breaking live virtualenvs.
 
 Examples:
 
 ```bash
 ./clean-system-caches.sh                       # dry-run, default targets
 ./clean-system-caches.sh --apply               # delete default targets
+./clean-system-caches.sh --home-cache          # preview incl. uv/npm caches
 ./clean-system-caches.sh --wallpaper --xcode   # preview with heavy targets
 ./clean-system-caches.sh --all --apply         # everything (safe docker), delete
 ./clean-system-caches.sh --docker-volumes --apply  # also prune docker volumes

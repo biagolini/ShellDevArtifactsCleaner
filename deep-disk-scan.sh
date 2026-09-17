@@ -13,7 +13,11 @@
 #
 # Read-only: this script only measures. It never deletes or modifies anything.
 #
-set -euo pipefail
+set -uo pipefail
+
+# Note: intentionally NOT using 'set -e'. The privileged 'du' scans hit
+# protected paths and return non-zero; we must keep going and still write
+# every section of the report.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT_DIR="$SCRIPT_DIR/.output"
@@ -38,30 +42,31 @@ sudo -v
   echo
 
   echo "===== 1) TOP OF DATA VOLUME (level 1) ====="
-  sudo du -sh -x "$DATA"/* 2>/dev/null | sort -rh | head -25
+  sudo du -sh -x "$DATA"/* 2>/dev/null | sort -rh | head -25 || true
   echo
 
   echo "===== 2) /private/var breakdown (system logs/caches/db) ====="
-  sudo du -sh -x "$DATA/private/var"/* 2>/dev/null | sort -rh | head -20
+  sudo du -sh -x "$DATA/private/var"/* 2>/dev/null | sort -rh | head -20 || true
   echo
 
   echo "===== 3) ALL USERS in /Users ====="
-  sudo du -sh -x "$DATA/Users"/* 2>/dev/null | sort -rh
+  sudo du -sh -x "$DATA/Users"/* 2>/dev/null | sort -rh || true
   echo
 
   echo "===== 4) LARGEST DIRECTORIES ON THE WHOLE DATA VOLUME (>2GB, depth<=6) ====="
+  sudo -v || true   # refresh sudo before the long scan
   sudo du -h -x -d 6 "$DATA" 2>/dev/null \
-    | awk '$1 ~ /[0-9]G$/ && ($1+0)>=2 {print}' | sort -rh | head -50
+    | awk '$1 ~ /[0-9]G$/ && ($1+0)>=2 {print}' | sort -rh | head -50 || true
   echo
 
   echo "===== 5) TOTAL RECONCILIATION (df + diskutil) ====="
-  df -h "$DATA" | awk 'NR==1 || /Data/'
+  df -h "$DATA" | awk 'NR==1 || /Data/' || true
   echo
-  diskutil info "$DATA" 2>/dev/null | grep -iE "Volume Used|Volume Free|Purgeable|Container Free"
+  diskutil info "$DATA" 2>/dev/null | grep -iE "Volume Used|Volume Free|Purgeable|Container Free" || true
   echo
 
   echo "===== 6) APFS PER-VOLUME (real accounting) ====="
-  diskutil apfs list 2>/dev/null
+  diskutil apfs list 2>/dev/null || true
 
   echo
   echo "Scan complete."
