@@ -15,6 +15,7 @@
 #       --xcode           Xcode iOS DeviceSupport symbols (regenerated on device connect)
 #       --docker          Docker build cache + unused images (SAFE: keeps all volumes)
 #       --docker-volumes  Also prune unused Docker volumes (WARNING: may delete DB data)
+#       --home-cache      Clean ~/.cache (uv via 'uv cache clean'; skips credential caches)
 #
 # Safety:
 #   - Dry-run by default. Deletes only with --apply, then asks for confirmation.
@@ -36,6 +37,7 @@ DO_WALLPAPER=false
 DO_XCODE=false
 DO_DOCKER=false
 DO_DOCKER_VOLUMES=false
+DO_HOME_CACHE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -44,7 +46,8 @@ while [[ $# -gt 0 ]]; do
     --xcode)          DO_XCODE=true ;;
     --docker)         DO_DOCKER=true ;;
     --docker-volumes) DO_DOCKER=true; DO_DOCKER_VOLUMES=true ;;
-    --all)            DO_WALLPAPER=true; DO_XCODE=true; DO_DOCKER=true ;;
+    --home-cache)     DO_HOME_CACHE=true ;;
+    --all)            DO_WALLPAPER=true; DO_XCODE=true; DO_DOCKER=true; DO_HOME_CACHE=true ;;
     -h|--help)   grep '^#' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "ERROR: unknown argument: $1" >&2; echo "Try: $0 --help" >&2; exit 1 ;;
   esac
@@ -74,6 +77,41 @@ if [[ -d "$CACHES" ]]; then
   add_action "User caches ($CACHES/*)" \
     "find \"$CACHES\" -mindepth 1 -maxdepth 1 -exec rm -rf {} +" \
     "$size_kb"
+fi
+
+# ---------------------------------------------------------------------------
+# 1b) Home cache directory ~/.cache (opt-in via --home-cache)
+#     Many CLI tools store large caches here (uv, puppeteer, codex, etc.).
+#     Rules:
+#       - Use each tool's own cleaner when available (uv cache clean),
+#         because tools may hardlink cache entries into active environments.
+#       - Never touch credential/token caches (.aws/*/cache, ~/.cache/claude).
+# ---------------------------------------------------------------------------
+if $DO_HOME_CACHE; then
+  DOTCACHE="$HOME/.cache"
+
+  # uv: clean via its own command (safe with hardlinks to active venvs).
+  if command -v uv >/dev/null 2>&1 && [[ -d "$DOTCACHE/uv" ]]; then
+    size_kb="$(dir_kb "$DOTCACHE/uv")"; size_kb="${size_kb:-0}"
+    add_action "uv cache (via 'uv cache clean')" \
+      "uv cache clean" \
+      "$size_kb"
+  fi
+
+  # Other ~/.cache subfolders, excluding uv (handled above) and credentials.
+  if [[ -d "$DOTCACHE" ]]; then
+    while IFS= read -r sub; do
+      base="$(basename "$sub")"
+      case "$base" in
+        uv|claude) continue ;;   # uv handled above; claude may hold tokens
+      esac
+      [[ -d "$sub" ]] || continue
+      size_kb="$(dir_kb "$sub")"; size_kb="${size_kb:-0}"
+      add_action "Home cache: ~/.cache/$base" \
+        "rm -rf \"$sub\"" \
+        "$size_kb"
+    done < <(find "$DOTCACHE" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+  fi
 fi
 
 # ---------------------------------------------------------------------------
